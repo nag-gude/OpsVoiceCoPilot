@@ -63,6 +63,7 @@ def _build_tools_config(project_id: str):
     try:
         from google.genai import types
     except ImportError:
+        logger.exception("google.genai.types not available; disabling get_recent_logs tool")
         return []
 
     # Use dict form for compatibility (some SDK versions prefer it)

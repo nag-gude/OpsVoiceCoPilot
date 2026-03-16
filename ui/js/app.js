@@ -57,7 +57,7 @@
     if (debugLastError) debugLastError.textContent = lastError || '—';
   }
 
-  // Gateway WebSocket base: ?gateway=... or localStorage or config.json (GCS)
+  // Gateway WebSocket base: ?gateway=... or localStorage
   (function () {
     var params = new URLSearchParams(location.search);
     var q = params.get('gateway');
@@ -75,10 +75,6 @@
         return;
       }
     } catch (_) {}
-    fetch('config.json').then(function (r) { return r.json(); }).then(function (c) {
-      if (c && c.gateway_ws_base) window.GATEWAY_WS_BASE = c.gateway_ws_base;
-      if (typeof updateDebugPanel === 'function') updateDebugPanel();
-    }).catch(function () {});
   })();
   if (debugPanel && !debugPanel.classList.contains('hidden')) updateDebugPanel();
 
@@ -318,6 +314,58 @@
 
   restoreSession();
 
+  function processAndSendPcm(input) {
+    if (!voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
+    const ratio = voiceCaptureContext.sampleRate / VOICE_IN_RATE;
+    const outLen = Math.floor(input.length / ratio);
+    const out = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const v = input[Math.floor(i * ratio)] * 32767;
+      out[i] = Math.max(-32768, Math.min(32767, v));
+    }
+    voiceWs.send(out.buffer);
+  }
+
+  function setupScriptProcessor(source) {
+    const bufferSize = 4096;
+    voiceCaptureNode = voiceCaptureContext.createScriptProcessor(bufferSize, 1, 1);
+    voiceCaptureNode.onaudioprocess = function (e) {
+      const input = e.inputBuffer.getChannelData(0);
+      processAndSendPcm(input);
+    };
+    source.connect(voiceCaptureNode);
+    voiceCaptureNode.connect(voiceCaptureContext.destination);
+  }
+
+  async function setupMicProcessing() {
+    const sampleRate = 48000;
+    voiceCaptureContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
+    const source = voiceCaptureContext.createMediaStreamSource(voiceMicStream);
+
+    if (voiceCaptureContext.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+      try {
+        await voiceCaptureContext.audioWorklet.addModule('js/audio-worklet-processor.js');
+        voiceCaptureNode = new AudioWorkletNode(voiceCaptureContext, 'ops-voice-processor');
+        voiceCaptureNode.port.onmessage = function (event) {
+          const input = event.data;
+          if (input && input.length) {
+            processAndSendPcm(input);
+          }
+        };
+        source.connect(voiceCaptureNode);
+        // No need to connect to destination; we only capture, not play back.
+        return;
+      } catch (e) {
+        // Fallback to ScriptProcessorNode if AudioWorklet is unavailable or fails.
+        setupScriptProcessor(source);
+        return;
+      }
+    }
+
+    // Fallback path for browsers without AudioWorklet support.
+    setupScriptProcessor(source);
+  }
+
   btnVoiceMic.addEventListener('click', async function () {
     if (voiceMicStream) {
       voiceMicStream.getTracks().forEach(function (t) { t.stop(); });
@@ -332,25 +380,7 @@
     }
     try {
       voiceMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const sampleRate = 48000;
-      voiceCaptureContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
-      const source = voiceCaptureContext.createMediaStreamSource(voiceMicStream);
-      const bufferSize = 4096;
-      voiceCaptureNode = voiceCaptureContext.createScriptProcessor(bufferSize, 1, 1);
-      voiceCaptureNode.onaudioprocess = function (e) {
-        if (!voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
-        const input = e.inputBuffer.getChannelData(0);
-        const ratio = voiceCaptureContext.sampleRate / VOICE_IN_RATE;
-        const outLen = Math.floor(input.length / ratio);
-        const out = new Int16Array(outLen);
-        for (let i = 0; i < outLen; i++) {
-          const v = input[Math.floor(i * ratio)] * 32767;
-          out[i] = Math.max(-32768, Math.min(32767, v));
-        }
-        voiceWs.send(out.buffer);
-      };
-      source.connect(voiceCaptureNode);
-      voiceCaptureNode.connect(voiceCaptureContext.destination);
+      await setupMicProcessing();
       btnVoiceMic.textContent = 'Stop mic';
     } catch (err) {
       alert('Microphone error: ' + err.message);
