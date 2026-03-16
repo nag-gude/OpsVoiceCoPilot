@@ -7,7 +7,6 @@ The app uses a **microservices architecture**: Gateway, Agent, and Tools. All th
 
 ![Architecture](assets/architecture.png)
 
-
 ## Services
 
 ```
