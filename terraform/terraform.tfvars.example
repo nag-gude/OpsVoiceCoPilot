@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and set your values.
+# Required for: terraform plan / apply
+
+project_id = "your-gcp-project-id"
+region     = "europe-west2"
+
+# Optional (defaults below)
+# artifact_registry_repo   = "ops-voice-copilot"
+# image_name               = "app"
+# Public access: set true so anyone can open the UI and test without signing in
+allow_unauthenticated    = true

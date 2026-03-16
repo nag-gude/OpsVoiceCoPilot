@@ -1,0 +1,36 @@
+# Ops Voice Co-Pilot — microservices (Gateway, Agent, Tools)
+# Run: docker compose up --build
+# UI: http://localhost:8080
+# Set GOOGLE_CLOUD_PROJECT (and optionally GOOGLE_APPLICATION_CREDENTIALS) in .env or below.
+# All services use the same image; scripts/run-service.sh runs the correct app via SERVICE_NAME.
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICE_NAME: gateway
+      PORT: 8080
+      AGENT_SERVICE_URL: http://agent:8081
+    depends_on:
+      - agent
+
+  agent:
+    build: .
+    environment:
+      SERVICE_NAME: agent
+      PORT: 8081
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west2}
+      GEMINI_LIVE_MODEL: ${GEMINI_LIVE_MODEL:-gemini-2.0-flash-live-001}
+      TOOLS_SERVICE_URL: http://tools:8082
+    depends_on:
+      - tools
+
+  tools:
+    build: .
+    environment:
+      SERVICE_NAME: tools
+      PORT: 8082
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
