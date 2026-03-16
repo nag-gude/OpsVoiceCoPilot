@@ -5,50 +5,7 @@ The app uses a **microservices architecture**: Gateway, Agent, and Tools. All th
 
 ## High-level
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  User (Operator / SRE)                                                    │
-│  • Microphone (voice)   • Screenshot / paste (dashboard, logs, errors)   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Browser (Ops Voice Co-Pilot UI)                                         │
-│  • Upload/paste image  • Connect Voice  • Start/Stop mic                 │
-│  • WebSocket: binary PCM (16 kHz → server) + JSON (image, transcript)   │
-│  • Playback: PCM 24 kHz from server                                      │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │  HTTPS / WSS
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  Gateway (Cloud Run :8080)                                                 │
-│  • FastAPI: /health, / (static UI), /ws/live/voice                         │
-│  • Proxies /ws/live/voice → Agent (binary + text pass-through)           │
-│  • Env: AGENT_SERVICE_URL                                                  │
-└──────────────────────────────────────────────────────────────────────────┘
-                           │
-                           │ WS → Agent
-                           ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  Agent (Cloud Run :8080)                                                   │
-│  • WebSocket /ws/live/voice: Gemini Live session, audio/video/text queues │
-│  • On get_recent_logs tool call: HTTP POST → Tools /logs/recent            │
-│  • Env: GOOGLE_CLOUD_PROJECT, VERTEX_AI_LOCATION, TOOLS_SERVICE_URL        │
-└──────────────────────────────────────────────────────────────────────────┘
-                    │                                    │
-                    │  Vertex AI (Live API)               │  HTTP POST /logs/recent
-                    ▼                                    ▼
-┌──────────────────────────────┐    ┌──────────────────────────────────────┐
-│  Gemini Live API (Vertex)     │    │  Tools (Cloud Run :8080)              │
-│  • Real-time bidirectional   │    │  • POST /logs/recent → Cloud Logging  │
-│  • Audio in (16 kHz PCM)      │    │  • Returns { result: "..." }          │
-│  • Image in (screenshot)      │    │  • Env: GOOGLE_CLOUD_PROJECT          │
-│  • Audio out (24 kHz PCM)     │    └──────────────────────────────────────┘
-│  • Interruption (barge-in)   │                    │
-│  • Tool: get_recent_logs     │                    ▼
-└──────────────────────────────┘           Google Cloud Logging API
-```
+![Architecture](assets/architecture.png)
 
 
 ## Services
@@ -118,30 +75,30 @@ Optional: **Secret Manager** for credentials (NFR-3: no hardcoded secrets).
 ```mermaid
 flowchart TD
     %% USER LAYER
-    subgraph user[User (Operator / SRE)]
-        Mic[Microphone (Voice)]
-        Screenshot[Upload / Screenshot]
+    subgraph user["User (Operator / SRE)"]
+        Mic["Microphone (Voice)"]
+        Screenshot["Upload / Screenshot"]
     end
 
     %% BROWSER
-    subgraph browser[Browser (UI)]
-        UI[Ops Voice Co-Pilot UI]
-        WS[WebSocket: PCM 16 kHz + JSON]
-        Playback[Audio Playback PCM 24 kHz]
+    subgraph browser["Browser (UI)"]
+        UI["Ops Voice Co-Pilot UI"]
+        WS["WebSocket: PCM 16 kHz + JSON"]
+        Playback["Audio Playback PCM 24 kHz"]
     end
 
     %% CLOUD RUN SERVICES
-    subgraph cloudrun[Cloud Run Services]
-        GW[Gateway<br>:8080<br>Proxies WS → Agent]
-        Agent[Agent<br>:8080<br>Gemini Live session, tool calls]
-        Tools[Tools<br>:8080<br>Logs API for Agent]
+    subgraph cloudrun["Cloud Run Services"]
+        GW["Gateway<br>:8080<br>Proxies WS → Agent"]
+        Agent["Agent<br>:8080<br>Gemini Live session, tool calls"]
+        Tools["Tools<br>:8080<br>Logs API for Agent"]
     end
 
     %% GCP SERVICES
-    subgraph gcp[GCP Services]
-        Gemini[Gemini Live API (Vertex AI)<br>Real-time Audio/Video/Text, Barge-in]
-        Logging[Cloud Logging API]
-        SecretMgr[Secret Manager (optional)]
+    subgraph gcp["GCP Services"]
+        Gemini["Gemini Live API (Vertex AI)<br>Real-time Audio/Video/Text, Barge-in"]
+        Logging["Cloud Logging API"]
+        SecretMgr["Secret Manager (optional)"]
     end
 
     %% USER → BROWSER
