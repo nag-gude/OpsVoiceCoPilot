@@ -1,5 +1,10 @@
 # Ops Voice Co-Pilot
 
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Google%20Cloud%20Run-blue.svg)](https://cloud.google.com/run)
+[![Gemini](https://img.shields.io/badge/AI-Gemini%20Live%20API-4285F4.svg)](https://ai.google.dev/)
+[![Vertex AI](https://img.shields.io/badge/Vertex%20AI-Live%20Agent-8E24AA.svg)](https://cloud.google.com/vertex-ai)
+
 ![Ops Voice Co-Pilot](assets/Thumbnail.png)
 
 **See it. Say it. Fix it.**
