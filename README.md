@@ -172,19 +172,3 @@ OpsVoiceCoPilot/
 ├── requirements.txt
 └── .env.example
 ```
-
-## Requirements (SRS alignment)
-
-| Requirement | Implementation |
-|-------------|----------------|
-| Real-time voice, interruptible | Gemini Live API via `google-genai`; WebSocket `/ws/live/voice`; barge-in supported. |
-| Vision (screenshot / screen share) | UI: upload or paste image; sent to Live session as realtime image. |
-| Grounding in image and tool results | System instruction + verbal citations; Agent calls Tools service for `get_recent_logs`. |
-| Backend on GCP | Cloud Run (Gateway, Agent, Tools). |
-| Gemini model | Vertex AI Gemini Live (`gemini-live-2.5-flash-native-audio`, region e.g. `europe-west1`). |
-| At least one GCP service beyond Gemini | Cloud Logging (Tools service). |
-| No hardcoded secrets | Env vars / ADC; optional Secret Manager. |
-
-## License
-
-MIT (or as required by the hackathon).
