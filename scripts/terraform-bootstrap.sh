@@ -12,7 +12,7 @@
 set -e
 PROJECT_ID="${1:-$GOOGLE_CLOUD_PROJECT}"
 BUCKET_NAME="${2:-${PROJECT_ID}-tfstate}"
-REGION="${3:-europe-west2}"
+REGION="${3:-europe-west1}"
 if [ -z "$PROJECT_ID" ]; then
   echo "Usage: $0 PROJECT_ID [BUCKET_NAME] [REGION]"
   echo "Or set GOOGLE_CLOUD_PROJECT"
@@ -55,9 +55,7 @@ terraform apply $VAR_ARGS -auto-approve \
 echo ""
 echo "=== 4) Cloud Build — build and push image ==="
 cd "$ROOT"
-./scripts/build-image.sh "$PROJECT_ID" "$REGION" "ops-voice-copilot" "tools"
-./scripts/build-image.sh "$PROJECT_ID" "$REGION" "ops-voice-copilot" "agent"
-./scripts/build-image.sh "$PROJECT_ID" "$REGION" "ops-voice-copilot" "gateway"
+./scripts/build-image.sh "$PROJECT_ID" "$REGION"
 
 echo ""
 echo "=== 5) Terraform apply (full) ==="

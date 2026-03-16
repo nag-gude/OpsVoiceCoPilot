@@ -5,7 +5,7 @@
 # Usage: ./scripts/build-image.sh [PROJECT_ID] [REGION] [ARTIFACT_REGISTRY_REPO] [IMAGE_NAME]
 set -e
 PROJECT_ID="${1:-$GOOGLE_CLOUD_PROJECT}"
-REGION="${2:-europe-west2}"
+REGION="${2:-europe-west1}"
 REPO="${3:-ops-voice-copilot}"
 IMAGE_NAME="${4:-app}"
 if [ -z "$PROJECT_ID" ]; then

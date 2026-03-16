@@ -1,42 +1,89 @@
-"""Ops Voice Co-Pilot - configuration from environment.
+"""
+Ops Voice Co-Pilot - configuration from environment.
 
 Uses env vars and optional .env. Secrets via GOOGLE_APPLICATION_CREDENTIALS
-or workload identity; API keys not hardcoded (NFR-3).
+or workload identity.
 """
-import os
+
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings. Override via env (e.g. GOOGLE_CLOUD_PROJECT)."""
+    """Application settings loaded from environment."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
-    # Google Cloud (required for Vertex AI Live API, Cloud Logging)
-    google_cloud_project: str = ""
-    vertex_ai_location: str = "europe-west2"
-    google_application_credentials: Optional[str] = None
+    # -----------------------------
+    # Google Cloud configuration
+    # -----------------------------
 
-    # Gemini Live API (Vertex AI)
-    gemini_live_model: str = "gemini-live-2.5-flash-native-audio"
+    google_cloud_project: str = Field(..., alias="GOOGLE_CLOUD_PROJECT")
 
-    # API (Cloud Run sets PORT)
-    api_host: str = "0.0.0.0"
-    api_port: int = 8080
-    log_level: str = "INFO"
+    google_cloud_location: str = Field(
+        default="europe-west1",
+        alias="GOOGLE_CLOUD_LOCATION",
+    )
+
+    vertex_ai_location: Optional[str] = Field(
+        default=None,
+        alias="VERTEX_AI_LOCATION",
+    )
+
+    google_application_credentials: Optional[str] = Field(
+        default=None,
+        alias="GOOGLE_APPLICATION_CREDENTIALS",
+    )
+
+    # -----------------------------
+    # Gemini Live API
+    # -----------------------------
+
+    gemini_live_model: str = Field(
+        default="gemini-live-2.5-flash-native-audio",
+        alias="GEMINI_LIVE_MODEL",
+    )
+
+    # -----------------------------
+    # API server
+    # -----------------------------
+
+    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+
+    api_port: int = Field(default=8080, alias="PORT")
+
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    # -----------------------------
+    # Validators
+    # -----------------------------
+
+    @field_validator("vertex_ai_location", mode="before")
+    def normalize_vertex_location(cls, v, info):
+        """
+        If VERTEX_AI_LOCATION not set, fall back to GOOGLE_CLOUD_LOCATION.
+        """
+        if v:
+            return v
+        return info.data.get("google_cloud_location")
+
+    # -----------------------------
+    # Helpers
+    # -----------------------------
 
     def get_port(self) -> int:
-        """Return port to bind (respects Cloud Run PORT)."""
-        return int(os.environ.get("PORT", self.api_port))
+        """Return port to bind (Cloud Run compatible)."""
+        return self.api_port
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached settings singleton."""
+    """Return cached settings instance."""
     return Settings()
-

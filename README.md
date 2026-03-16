@@ -1,8 +1,10 @@
 # Ops Voice Co-Pilot
 
+![Ops Voice Co-Pilot](assets/Thumbnail.png)
+
 **See it. Say it. Fix it.**
 
-Real-time voice + vision agent for operational triage and "why did this break?" — built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) (Live Agents track). **Microservices architecture:** Gateway, Agent, and Tools run as separate services.
+Real-time voice + vision agent for operational triage. Ask out loud “why did this break?” while sharing a dashboard or log screen—get grounded answers you can trust, without typing.
 
 ## What it does
 
@@ -93,9 +95,18 @@ Deploy with Terraform and store state in a **GCS bucket** for repeatable, shared
    Use the `gateway_url` output in the browser. **Public access is on by default** (`allow_unauthenticated = true`), so anyone can open the UI and test without signing in.
 
    If the UI or Connect (Voice) prompt for login, run once:  
-   `./scripts/allow-public-access.sh YOUR_PROJECT_ID europe-west2`
+   `./scripts/allow-public-access.sh YOUR_PROJECT_ID europe-west1`
 
 Full steps, backend options, and re-deploy: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### Demo and sample data
+
+- **Sample transcript:** On first load the UI shows a sample Q&A (“Why did this break?” and a Co-pilot answer grounded in logs). Use **Load sample demo** in the Voice section to refill it anytime.
+- **Seed logs in GCP:** To give the voice agent real log entries to cite, run once before a demo:
+  ```bash
+  ./scripts/push-demo-logs.py YOUR_PROJECT_ID
+  ```
+  See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#demo-push-failure-logs-to-gcp).
 
 ### Option B: Shell script (quick deploy)
 
@@ -104,7 +115,7 @@ The script deploys **three** Cloud Run services (Tools → Agent → Gateway) an
 1. **Set project and region**
    ```bash
    export PROJECT_ID=your-gcp-project-id
-   export REGION=europe-west2
+   export REGION=europe-west1
    ```
 
 2. **Deploy**
@@ -127,13 +138,6 @@ The script deploys **three** Cloud Run services (Tools → Agent → Gateway) an
    done
    ```
 
-## Proof of GCP deployment
-
-- **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-- **Deployment**: Use [Terraform with GCS backend](docs/DEPLOYMENT.md) or `./scripts/deploy-cloudrun.sh`; the Gateway URL is proof. You can also show the three services in the [Cloud Run console](https://console.cloud.google.com/run).
-- **Demo video**: Under 4 minutes: share a dashboard screenshot, connect voice, ask "Why did this break?" and show the grounded voice response.
-- **Hackathon submission**: [docs/SUBMISSION.md](docs/SUBMISSION.md).
-
 ## Repo layout
 
 ```
@@ -141,25 +145,25 @@ OpsVoiceCoPilot/
 ├── services/
 │   ├── core/                   # Shared config + logging
 │   ├── gateway/main.py         # Gateway: UI at `/`, `/health`, WS proxy → Agent
-│   ├── agent/main.py           # Agent: `/health`, `/ws/live/voice`; uses Live session + Tools
-│   └── tools/main.py           # Tools: `/health`, POST `/logs/recent` (Cloud Logging)
-├── ui/                         # Static frontend (HTML/CSS/JS)
+│   ├── agent/main.py           # Agent: `/health`, `/ws/live/voice`; Live session + Tools
+│   └── tools/main.py           # Tools: `/health`, POST `/logs/recent`, POST `/logs/demo/seed`
+├── ui/                         # Static frontend (HTML/CSS/JS); sample demo transcript
 ├── scripts/
-│   ├── run-service.sh          # Entrypoint: run gateway|agent|tools by SERVICE_NAME
+│   ├── run-service.sh          # Run gateway|agent|tools by SERVICE_NAME (local)
 │   ├── deploy-cloudrun.sh      # Deploy all three to Cloud Run (script)
-│   └── terraform-bootstrap.sh  # Create GCS bucket for Terraform state + apply
+│   ├── terraform-bootstrap.sh  # GCS state bucket + Terraform apply + build image
+│   ├── build-image.sh          # Build and push single image to Artifact Registry
+│   ├── allow-public-access.sh  # Grant allUsers invoker on Cloud Run
+│   └── push-demo-logs.py       # Same, run directly with project venv
 ├── terraform/                  # Terraform (GCS backend, Cloud Run, IAM, Artifact Registry)
-│   ├── backend.tf
-│   ├── variables.tf
-│   ├── main.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars.example
+│   ├── main.tf                 # Foundation + Tools, Agent, Gateway modules
+│   ├── variables.tf, outputs.tf, backend.tf
+│   └── modules/cloud-run/, modules/foundation/
 ├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── DEPLOYMENT.md           # Terraform + GCS backend, script deploy
-│   └── SUBMISSION.md
+│   ├── ARCHITECTURE.md         # Diagrams, data flow, file roles
+│   ├── DEPLOYMENT.md           # Terraform + script deploy, demo logs
 ├── docker-compose.yml
-├── Dockerfile
+├── Dockerfile                  # Single image; SERVICE_NAME selects process
 ├── requirements.txt
 └── .env.example
 ```
@@ -172,7 +176,7 @@ OpsVoiceCoPilot/
 | Vision (screenshot / screen share) | UI: upload or paste image; sent to Live session as realtime image. |
 | Grounding in image and tool results | System instruction + verbal citations; Agent calls Tools service for `get_recent_logs`. |
 | Backend on GCP | Cloud Run (Gateway, Agent, Tools). |
-| Gemini model | Vertex AI Gemini Live (`gemini-2.0-flash-live-001`). |
+| Gemini model | Vertex AI Gemini Live (`gemini-live-2.5-flash-native-audio`, region e.g. `europe-west1`). |
 | At least one GCP service beyond Gemini | Cloud Logging (Tools service). |
 | No hardcoded secrets | Env vars / ADC; optional Secret Manager. |
 

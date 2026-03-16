@@ -2,7 +2,7 @@
 # Required for: terraform plan / apply
 
 project_id = "your-gcp-project-id"
-region     = "europe-west2"
+region     = "europe-west1"
 
 # Optional (defaults below)
 # artifact_registry_repo   = "ops-voice-copilot"

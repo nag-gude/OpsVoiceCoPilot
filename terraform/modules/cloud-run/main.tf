@@ -1,43 +1,70 @@
-resource "google_cloud_run_v2_service" "service" {
+resource "google_cloud_run_service" "service" {
   name     = var.name
   location = var.location
-  ingress  = "INGRESS_TRAFFIC_ALL"
+  project  = var.project_id
 
   template {
+    metadata {
+      annotations = {
+        "autoscaling.knative.dev/minScale" = tostring(var.min_instance_count)
+        "autoscaling.knative.dev/maxScale" = tostring(var.max_instance_count)
+      }
+    }
+    spec {
+      containers {
+        image = var.image_uri
+        ports {
+          container_port = 8080
+        }
 
-    service_account = var.service_account_email
-    containers {
-      image = var.image_uri
+        dynamic "env" {
+          for_each = var.env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
 
-      dynamic "env" {
-        for_each = var.env
-        content {
-          name  = env.key
-          value = env.value
+        env {
+          name = "LAST_UPDATED_TIMESTAMP"
+          value = timestamp()
+        }
+
+        resources {
+          limits = {
+            cpu    = "1000m"
+            memory = "512Mi"
+          }
+        }
+
+        startup_probe {
+          tcp_socket {
+            port = 8080
+          }
+          period_seconds    = 10
+          timeout_seconds   = 5
+          failure_threshold = 12
         }
       }
 
-      env {
-        name  = "LAST_DEPLOY_TIMESTAMP"
-        value = timestamp()
-      }
+      container_concurrency = var.container_concurrency
+      service_account_name  = var.service_account_email
+      timeout_seconds       = 300
+    }
+  }
 
-      ports {
-        container_port = var.container_port
-      }
-    }
-    scaling {
-      min_instance_count = var.min_instance_count
-      max_instance_count = var.max_instance_count
-    }
+  traffic {
+    percent         = 100
+    latest_revision = true
   }
 }
 
-resource "google_cloud_run_v2_service_iam_member" "invoker" {
-  count    = var.allow_unauthenticated ? 1 : 0
-  project  = google_cloud_run_v2_service.service.project
-  location = google_cloud_run_v2_service.service.location
-  name     = google_cloud_run_v2_service.service.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
+# Optionally allow unauthenticated access
+resource "google_cloud_run_service_iam_member" "invoker" {
+  count   = var.allow_unauthenticated ? 1 : 0
+  project = var.project_id
+  location = var.location
+  service = google_cloud_run_service.service.name
+  role    = "roles/run.invoker"
+  member  = "allUsers"
 }

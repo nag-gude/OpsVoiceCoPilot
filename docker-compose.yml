@@ -23,7 +23,7 @@ services:
       PORT: 8081
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
       VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west2}
-      GEMINI_LIVE_MODEL: ${GEMINI_LIVE_MODEL:-gemini-2.0-flash-live-001}
+      GEMINI_LIVE_MODEL: ${GEMINI_LIVE_MODEL:-gemini-live-2.5-flash-native-audio}
       TOOLS_SERVICE_URL: http://tools:8082
     depends_on:
       - tools

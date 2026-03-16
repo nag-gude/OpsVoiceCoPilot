@@ -1,3 +1,8 @@
+variable "project_id" {
+  description = "GCP project ID"
+  type        = string
+}
+
 variable "name" {
   description = "Cloud Run service name"
   type        = string
@@ -27,7 +32,7 @@ variable "env" {
 variable "min_instance_count" {
   description = "Minimum number of instances"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "max_instance_count" {
@@ -46,4 +51,10 @@ variable "container_port" {
   description = "Port the container listens on"
   type        = number
   default     = 8080
+}
+
+variable "container_concurrency" {
+  description = "Maximum number of concurrent requests"
+  type        = number
+  default     = 1
 }

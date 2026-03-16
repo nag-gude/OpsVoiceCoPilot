@@ -45,6 +45,7 @@
   const debugLastError = document.getElementById('debug-last-error');
   let lastError = '';
   let sessionState = 'disconnected'; // connecting | connected | disconnected
+  let pendingResponse = false; // user asked something but no Co-pilot/error yet
 
   if (new URLSearchParams(location.search).get('debug') === '1' && debugPanel) {
     debugPanel.classList.remove('hidden');
@@ -150,6 +151,8 @@
 
   function appendTranscript(type, text) {
     appendTranscriptDOM(type, text);
+    if (type === 'user') pendingResponse = true;
+    if (type === 'agent' || type === 'error') pendingResponse = false;
     if (isSessionMemoryEnabled()) {
       sessionTranscript.push({ type: type, text: text });
       saveSessionToStorage();
@@ -227,6 +230,7 @@
     voiceWs.onopen = function () {
       sessionState = 'connected';
       lastError = '';
+      pendingResponse = false;
       voiceStatus.textContent = 'Connected';
       voiceStatus.classList.add('connected');
       updateDebugPanel();
@@ -252,6 +256,10 @@
       updateDebugPanel();
     };
     voiceWs.onclose = function () {
+      if (pendingResponse) {
+        appendTranscript('agent', 'No data available.');
+        pendingResponse = false;
+      }
       sessionState = 'disconnected';
       voiceStatus.textContent = 'Disconnected';
       updateDebugPanel();
@@ -264,6 +272,7 @@
         voiceMicStream = null;
       }
       voiceWs = null;
+      voicePcmBatch = [];
     };
     voiceWs.onmessage = function (ev) {
       if (ev.data instanceof ArrayBuffer) {
@@ -289,6 +298,7 @@
             appendTranscript('error', lastError);
             updateDebugPanel();
           }
+          // ping/pong and other types ignored
         } catch (_) {}
       }
     };
@@ -314,16 +324,27 @@
 
   restoreSession();
 
+  const VOICE_BATCH_SAMPLES = 320;
+  let voicePcmBatch = [];
+
   function processAndSendPcm(input) {
     if (!voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
     const ratio = voiceCaptureContext.sampleRate / VOICE_IN_RATE;
     const outLen = Math.floor(input.length / ratio);
+    if (outLen === 0) return;
     const out = new Int16Array(outLen);
     for (let i = 0; i < outLen; i++) {
-      const v = input[Math.floor(i * ratio)] * 32767;
-      out[i] = Math.max(-32768, Math.min(32767, v));
+      const v = input[Math.floor(i * ratio)];
+      const clamped = Math.max(-1, Math.min(1, Number(v)));
+      const s = Math.round(clamped * 32767);
+      out[i] = Math.max(-32768, Math.min(32767, s));
     }
-    voiceWs.send(out.buffer);
+    for (let i = 0; i < out.length; i++) voicePcmBatch.push(out[i]);
+    while (voicePcmBatch.length >= VOICE_BATCH_SAMPLES) {
+      const batch = voicePcmBatch.splice(0, VOICE_BATCH_SAMPLES);
+      const buf = new Int16Array(batch);
+      voiceWs.send(buf.buffer);
+    }
   }
 
   function setupScriptProcessor(source) {
@@ -371,6 +392,7 @@
       voiceMicStream.getTracks().forEach(function (t) { t.stop(); });
       voiceMicStream = null;
       if (voiceCaptureNode) try { voiceCaptureNode.disconnect(); } catch (_) {}
+      voicePcmBatch = [];
       btnVoiceMic.textContent = 'Start mic';
       return;
     }

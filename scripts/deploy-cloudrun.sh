@@ -4,7 +4,7 @@
 # Output: Gateway URL (user-facing). Requires gcloud and Docker/source build.
 set -e
 PROJECT_ID="${1:-$GOOGLE_CLOUD_PROJECT}"
-REGION="${2:-europe-west2}"
+REGION="${2:-europe-west1}"
 if [ -z "$PROJECT_ID" ]; then
   echo "Usage: $0 PROJECT_ID [REGION]"
   echo "Or set GOOGLE_CLOUD_PROJECT"

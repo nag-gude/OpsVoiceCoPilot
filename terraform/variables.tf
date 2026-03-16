@@ -4,9 +4,9 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "GCP region for Cloud Run, Artifact Registry, and Vertex AI."
+  description = "GCP region for Cloud Run, Artifact Registry, and Vertex AI. Use europe-west1 for Gemini Live (gemini-live-2.5-flash-native-audio)."
   type        = string
-  default     = "europe-west2"
+  default     = "europe-west1"
 }
 
 variable "artifact_registry_repo" {
